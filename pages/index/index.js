@@ -7,7 +7,7 @@ Page({
     save: false,
     src: '',
     hat: {
-      url: '/pages/img/1.png',
+      url: '/pages/img/3.png',
       w: 256,
       h: 256,
       x: 0,
@@ -19,6 +19,20 @@ Page({
     
   },
 
+  // 生成随机数
+  getRandom(start, end, fixed=0){
+    let differ = end-start
+    let random = Math.random()
+    return (start +differ * random).toFixed(fixed)
+  },
+
+  // 自动更改挂件图片
+  updateImg(n){
+    this.setData({
+      "hat.url": '/pages/img/'+ n +'.png'
+    })
+  },
+
   // 获取微信头像
   getUserInfo: function (e) {
     console.log(e)
@@ -28,7 +42,6 @@ Page({
     this.setData({
       src: result,
     })
-    console.log(this.data.src);
     this.openFun();
   },
 
@@ -71,8 +84,9 @@ Page({
 
   // 绘制头像背景
   drawAvatar() {
-    var that = this;
-    var p = that.data;
+    let n = this.getRandom(1, 4);
+    this.updateImg(n);
+    let p = this.data;
     context = wx.createCanvasContext('myAvatar', this);
     context.clearRect(0, 0, 256, 256)
     context.drawImage(p.src, 0, 0, 256, 256);
@@ -91,6 +105,7 @@ Page({
     wx.canvasToTempFilePath({
       canvasId: 'myAvatar',
       success(res) {
+        console.log(res.tempFilePath)
         wx.saveImageToPhotosAlbum({
           filePath: res.tempFilePath,
           success(res) {
@@ -98,11 +113,42 @@ Page({
               title: '保存成功'
             })
           },
-          fail(res) {
-            wx.showToast({
-              title: '取消保存...',
-              icon: 'none'
-            })
+          fail(err) {
+            console.log(err)
+            if (err.errMsg === "saveImageToPhotosAlbum:fail:auth denied" || err.errMsg === "saveImageToPhotosAlbum:fail auth deny") {
+              // 这边微信做过调整，必须要在按钮中触发，因此需要在弹框回调中进行调用
+              wx.showModal({
+                title: '提示',
+                content: '需要您授权保存相册',
+                showCancel: false,
+                success: modalSuccess => {
+                  wx.openSetting({
+                    success(settingdata) {
+                      console.log("settingdata", settingdata)
+                      if (settingdata.authSetting['scope.writePhotosAlbum']) {
+                        wx.showModal({
+                          title: '提示',
+                          content: '获取权限成功,再次点击保存到相册即可保存',
+                          showCancel: false,
+                        })
+                      } else {
+                        wx.showModal({
+                          title: '提示',
+                          content: '获取权限失败，将无法保存到相册哦~',
+                          showCancel: false,
+                        })
+                      }
+                    },
+                    fail(failData) {
+                      console.log("failData", failData)
+                    },
+                    complete(finishData) {
+                      console.log("finishData", finishData)
+                    }
+                  })
+                }
+              })
+            }
           }
         })
       }
